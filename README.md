@@ -55,3 +55,21 @@ Jika ingin menambahkan fitur proktor lebih lanjut, berikut ide:
 - deteksi tatapan/mata menjauh
 - deteksi penggunaan ponsel
 - deteksi objek tambahan di meja
+
+## Mode Kamera Statis (IP/MJPEG)
+
+Anda dapat menggunakan kamera statis (mis. IP camera dengan stream MJPEG/HTTP). Cara konfigurasi:
+
+- Buka aplikasi di browser.
+- Pada panel kontrol, ubah mode menjadi **Kamera Statis (URL)**.
+- Masukkan URL stream kamera (mis. `http://camera-host/mjpeg`) lalu tekan **Simpan URL Kamera**.
+- Tekan **Mulai Pengawasan** untuk memulai deteksi dari stream statis.
+
+Atau atur variabel lingkungan `CAMERA_URL` sebelum menjalankan server untuk setelan global:
+
+```bash
+export CAMERA_URL="http://camera-host/mjpeg"
+npm start
+```
+
+Catatan: Server menyediakan endpoint proxy stream di `/camera/stream` yang digunakan frontend untuk mengambil frame.

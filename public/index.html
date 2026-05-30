@@ -19,7 +19,19 @@
           <canvas id="overlay"></canvas>
         </div>
         <div class="controls">
-          <button id="startButton">Mulai Pengawasan</button>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <select id="modeSelect" aria-label="Pilih mode kamera">
+              <option value="webcam">Webcam (kamera pengguna)</option>
+              <option value="static">Kamera Statis (URL)</option>
+            </select>
+
+            <div id="staticConfig" style="display:none;">
+              <input id="cameraUrlInput" placeholder="Masukkan URL kamera (MJPEG/HTTP)" />
+              <button id="saveCameraBtn">Simpan URL Kamera</button>
+            </div>
+
+            <button id="startButton">Mulai Pengawasan</button>
+          </div>
           <p id="sessionLabel">ID sesi: <span id="sessionId">-</span></p>
           <p id="statusText" class="status">Menunggu kamera...</p>
         </div>
