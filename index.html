@@ -119,10 +119,20 @@
       border-radius: 18px;
       font-weight: 600;
       background: #eef2f7;
-    const HEAD_TURN_THRESHOLD = 60;        // pixels horizontal
-    const MOVEMENT_SPEED_THRESHOLD = 40;   // pixels per frame
-    const HEAD_TURN_ALERT_THRESHOLD = 3;   // frames before alert
-    const MOVEMENT_ALERT_THRESHOLD = 2;    // frames before alert    }
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .status.warning {
+      background: #fef3c7;
+      color: #92400e;
+      border: 2px solid #f59e0b;
+    }
+
+    .status.critical {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 2px solid #ef4444;
+    }
 
     .info-panel {
       display: grid;
@@ -333,8 +343,15 @@
     let lastEventAt = 0;
     let lastStatus = '';
     let sampleCanvas = null;
+    let lastFacePosition = null;
+    let headTurnCounter = 0;
+    let movementCounter = 0;
 
-    // Load logs from localStorage
+    const HEAD_TURN_THRESHOLD = 40;        // pixels horizontal
+    const MOVEMENT_SPEED_THRESHOLD = 35;   // pixels per frame
+    const HEAD_TURN_ALERT_THRESHOLD = 2;   // frames before alert
+    const MOVEMENT_ALERT_THRESHOLD = 2;    // frames before alert
+
     function loadLogs() {
       try {
         const stored = localStorage.getItem('proktor_logs');
@@ -344,7 +361,6 @@
       }
     }
 
-    // Save logs to localStorage
     function saveLogs(logs) {
       try {
         localStorage.setItem('proktor_logs', JSON.stringify(logs));
@@ -355,31 +371,51 @@
 
     let logs = loadLogs();
 
+    function renderLogs() {
+      logContainer.innerHTML = '';
+      logs.forEach((entry) => {
+        const item = document.createElement('div');
+        item.className = `log-item ${entry.eventType}`;
+        item.innerHTML = `
+          <b>${new Date(entry.timestamp).toLocaleTimeString('id-ID')} — ${entry.eventType.toUpperCase()}</b>
+          <div>${entry.message}</div>
+        `;
+        if (entry.screenshot) {
+          const img = document.createElement('img');
+          img.src = entry.screenshot;
+          img.alt = 'Screenshot bukti';
+          img.addEventListener('click', () => {
+            modalImage.src = entry.screenshot;
+            imageModal.classList.add('active');
+          });
+          item.appendChild(img);
+        }
+        logContainer.appendChild(item);
+      });
+    }
+
     async function initCamera() {
       try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
-          audio: false,
-        });
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         video.srcObject = cameraStream;
         await video.play();
         overlay.width = video.videoWidth || 640;
         overlay.height = video.videoHeight || 480;
-        statusText.textContent = 'Kamera siap. Klik "Mulai Pengawasan".';
+        setStatus('Kamera siap. Klik "Mulai Pengawasan".', 'info');
         sessionIdLabel.textContent = sessionId;
       } catch (error) {
-        statusText.textContent = 'Gagal mengakses kamera. Izinkan kamera di browser settings.';
+        setStatus('Gagal mengakses kamera. Izinkan kamera di browser settings.', 'warning');
         console.error(error);
       }
     }
 
     async function loadModel() {
       try {
-        statusText.textContent = 'Memuat model AI...';
+        setStatus('Memuat model AI...', 'info');
         model = await blazeface.load();
-        statusText.textContent = 'Model AI siap. Klik tombol untuk mulai.';
+        setStatus('Model AI siap. Klik tombol untuk mulai.', 'info');
       } catch (error) {
-        statusText.textContent = 'Gagal memuat model AI. Periksa koneksi internet.';
+        setStatus('Gagal memuat model AI. Periksa koneksi internet.', 'critical');
         console.error(error);
       }
     }
@@ -393,35 +429,34 @@
         <b>${timeStr} — ${type.toUpperCase()}</b>
         <div>${message}</div>
       `;
-
       if (screenshot) {
         const img = document.createElement('img');
         img.src = screenshot;
         img.alt = 'Screenshot bukti';
-        img.style.maxWidth = '100%';
-        img.style.borderRadius = '12px';
-        img.style.marginTop = '10px';
-        img.style.cursor = 'pointer';
         img.addEventListener('click', () => {
           modalImage.src = screenshot;
           imageModal.classList.add('active');
         });
         item.appendChild(img);
       }
-
       logContainer.prepend(item);
-
-      // Add to logs array and save
       const logEntry = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         sessionId,
         eventType: type,
         message,
         timestamp: now.toISOString(),
-        screenshot: screenshot ? 'data:image/png' : null,
+        screenshot: screenshot || null,
       };
       logs.unshift(logEntry);
       saveLogs(logs);
+    }
+
+    function setStatus(status, type = 'info') {
+      statusText.textContent = status;
+      statusText.className = 'status';
+      if (type === 'warning') statusText.classList.add('warning');
+      else if (type === 'critical') statusText.classList.add('critical');
     }
 
     function captureScreenshot() {
@@ -429,7 +464,6 @@
       canvas.width = overlay.width;
       canvas.height = overlay.height;
       const ctx = canvas.getContext('2d');
-      
       const drawSource = modeSelect.value === 'static' ? staticStreamImg : video;
       ctx.drawImage(drawSource, 0, 0, canvas.width, canvas.height);
       ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
@@ -442,114 +476,149 @@
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 3;
       ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
-
       predictions.forEach((prediction) => {
         const [x1, y1] = prediction.topLeft;
         const [x2, y2] = prediction.bottomRight;
         const width = x2 - x1;
         const height = y2 - y1;
-
         ctx.fillRect(x1, y1, width, height);
         ctx.strokeRect(x1, y1, width, height);
       });
     }
 
-    async function detectLoop() {
-      if (!running || !model) return;
-
-      const predictions = await model.estimateFaces(video, false);
-      const faceCount = predictions.length;
-      faceCountEl.textContent = faceCount;
-      drawBoxes(predictions);
-
-      let status = 'Aman - hanya 1 wajah terdeteksi.';
-      let eventType = 'info';
-      let message = 'Sesi pengawasan berjalan normal.';
-      let screenshot = null;
-
-      if (faceCount === 0) {
-        status = 'Peringatan: wajah tidak terdeteksi.';
-        eventType = 'warning';
-        message = 'Tidak ada wajah terdeteksi dalam kamera.';
-      } else if (faceCount > 1) {
-        status = 'Bahaya: lebih dari satu wajah terdeteksi.';
-        eventType = 'critical';
-        message = 'Terjadi deteksi lebih dari satu wajah dalam area kamera.';
-        screenshot = captureScreenshot();
+    function detectHeadMovement(predictions) {
+      if (predictions.length === 0) return {};
+      const [x1, y1] = predictions[0].topLeft;
+      const [x2, y2] = predictions[0].bottomRight;
+      const centerX = (x1 + x2) / 2;
+      const centerY = (y1 + y2) / 2;
+      const faceWidth = x2 - x1;
+      let headTurnAlert = null;
+      let movementAlert = null;
+      if (lastFacePosition) {
+        const deltaX = Math.abs(centerX - lastFacePosition.centerX);
+        const deltaY = Math.abs(centerY - lastFacePosition.centerY);
+        const moveSpeed = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const sizeChange = Math.abs(faceWidth - lastFacePosition.faceWidth);
+        if (deltaX > HEAD_TURN_THRESHOLD) {
+          headTurnCounter += 1;
+          if (headTurnCounter >= HEAD_TURN_ALERT_THRESHOLD) {
+            const direction = centerX > lastFacePosition.centerX ? 'kanan' : 'kiri';
+            headTurnAlert = { direction, deltaX };
+            headTurnCounter = 0;
+          }
+        } else {
+          headTurnCounter = Math.max(0, headTurnCounter - 1);
+        }
+        if (moveSpeed > MOVEMENT_SPEED_THRESHOLD && sizeChange < faceWidth * 0.25) {
+          movementCounter += 1;
+          if (movementCounter >= MOVEMENT_ALERT_THRESHOLD) {
+            movementAlert = { moveSpeed };
+            movementCounter = 0;
+          }
+        } else {
+          movementCounter = Math.max(0, movementCounter - 1);
+        }
       }
-
-      statusText.textContent = status;
-
-      const now = Date.now();
-      if (status !== lastStatus || now - lastEventAt > 5000) {
-        lastStatus = status;
-        lastEventAt = now;
-        updateLog(message, eventType, screenshot);
-      }
-
-      requestAnimationFrame(detectLoop);
+      lastFacePosition = { centerX, centerY, faceWidth };
+      return { headTurnAlert, movementAlert };
     }
 
     function ensureSampleCanvas(width, height) {
-      if (!sampleCanvas) {
-        sampleCanvas = document.createElement('canvas');
-      }
+      if (!sampleCanvas) sampleCanvas = document.createElement('canvas');
       sampleCanvas.width = width;
       sampleCanvas.height = height;
       return sampleCanvas;
     }
 
-    async function detectStaticLoop() {
-      if (!running || !model || !staticStreamImg.src) return;
-
-      const w = overlay.width || 640;
-      const h = overlay.height || 480;
-      const sc = ensureSampleCanvas(w, h);
-      const sctx = sc.getContext('2d');
-      
-      try {
-        sctx.drawImage(staticStreamImg, 0, 0, w, h);
-      } catch (err) {
-        // Image might not be ready yet
-      }
-
-      const predictions = await model.estimateFaces(sc, false);
+    async function processPredictions(predictions) {
       const faceCount = predictions.length;
       faceCountEl.textContent = faceCount;
       drawBoxes(predictions);
-
       let status = 'Aman - hanya 1 wajah terdeteksi.';
       let eventType = 'info';
       let message = 'Sesi pengawasan berjalan normal.';
       let screenshot = null;
-
       if (faceCount === 0) {
         status = 'Peringatan: wajah tidak terdeteksi.';
         eventType = 'warning';
-        message = 'Tidak ada wajah terdeteksi dalam kamera statis.';
+        message = 'Tidak ada wajah terdeteksi dalam kamera.';
+        lastFacePosition = null;
       } else if (faceCount > 1) {
         status = 'Bahaya: lebih dari satu wajah terdeteksi.';
         eventType = 'critical';
-        message = 'Terjadi deteksi lebih dari satu wajah dalam area kamera statis.';
+        message = 'Terjadi deteksi lebih dari satu wajah dalam area kamera.';
         screenshot = captureScreenshot();
+      } else {
+        const movementCheck = detectHeadMovement(predictions);
+        if (movementCheck.headTurnAlert) {
+          status = `⚠ Peserta menoleh ke ${movementCheck.headTurnAlert.direction}`;
+          eventType = 'warning';
+          message = `Peserta menoleh ke ${movementCheck.headTurnAlert.direction} sebesar ${Math.round(movementCheck.headTurnAlert.deltaX)}px.`;
+          screenshot = captureScreenshot();
+        } else if (movementCheck.movementAlert) {
+          status = '⚠ Terdeteksi gerakan tidak fokus';
+          eventType = 'warning';
+          message = 'Terdeteksi gerakan tiba-tiba atau gerak tubuh yang tidak fokus pada ujian.';
+          screenshot = captureScreenshot();
+        }
       }
-
-      statusText.textContent = status;
-
+      setStatus(status, eventType);
       const now = Date.now();
       if (status !== lastStatus || now - lastEventAt > 5000) {
         lastStatus = status;
         lastEventAt = now;
         updateLog(message, eventType, screenshot);
       }
+    }
 
+    async function detectLoop() {
+      if (!running || !model) return;
+      const predictions = await model.estimateFaces(video, false);
+      await processPredictions(predictions);
+      requestAnimationFrame(detectLoop);
+    }
+
+    async function detectStaticLoop() {
+      if (!running || !model || !staticStreamImg.src) return;
+      const w = overlay.width || 640;
+      const h = overlay.height || 480;
+      const sc = ensureSampleCanvas(w, h);
+      const sctx = sc.getContext('2d');
+      try {
+        sctx.drawImage(staticStreamImg, 0, 0, w, h);
+      } catch (err) {
+        // Image may not be ready yet
+      }
+      const predictions = await model.estimateFaces(sc, false);
+      await processPredictions(predictions);
       requestAnimationFrame(detectStaticLoop);
     }
 
     startButton.addEventListener('click', async () => {
       const mode = modeSelect.value || 'webcam';
-      
-      if (mode === 'webcam') {
+      if (mode === 'static') {
+        const url = cameraUrlInput.value.trim();
+        if (!url) {
+          alert('Masukkan URL kamera terlebih dahulu');
+          return;
+        }
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+          cameraStream = null;
+        }
+        video.style.display = 'none';
+        staticStreamImg.style.display = 'block';
+        staticStreamImg.src = url;
+        running = true;
+        startButton.disabled = true;
+        startButton.textContent = 'Pengawasan Berjalan';
+        updateLog('Sesi pengawasan dimulai (kamera statis).', 'info');
+        if (!model) await loadModel();
+        detectStaticLoop();
+      } else {
+        staticStreamImg.style.display = 'none';
+        video.style.display = 'block';
         if (!cameraStream) await initCamera();
         if (!model) await loadModel();
         running = true;
@@ -557,43 +626,6 @@
         startButton.textContent = 'Pengawasan Berjalan';
         updateLog('Sesi pengawasan dimulai (webcam).', 'info');
         detectLoop();
-      } else {
-        const url = cameraUrlInput.value.trim();
-        if (!url) {
-          alert('Masukkan URL kamera terlebih dahulu');
-          return;
-        }
-        
-        if (cameraStream) {
-          cameraStream.getTracks().forEach((t) => t.stop());
-          cameraStream = null;
-          video.style.display = 'none';
-        }
-        
-        if (!model) await loadModel();
-        running = true;
-        startButton.disabled = true;
-        startButton.textContent = 'Pengawasan Berjalan';
-        updateLog('Sesi pengawasan dimulai (kamera statis).', 'info');
-
-        staticStreamImg.style.display = 'block';
-        staticStreamImg.crossOrigin = 'anonymous';
-        staticStreamImg.src = url;
-        
-        staticStreamImg.onload = () => {
-          overlay.width = staticStreamImg.width || 640;
-          overlay.height = staticStreamImg.height || 480;
-          detectStaticLoop();
-        };
-        
-        staticStreamImg.onerror = () => {
-          alert('Gagal memuat stream kamera. Periksa URL dan CORS.');
-          running = false;
-          startButton.disabled = false;
-          startButton.textContent = 'Mulai Pengawasan';
-        };
-
-        detectStaticLoop();
       }
     });
 
@@ -603,21 +635,18 @@
         alert('Masukkan URL kamera terlebih dahulu');
         return;
       }
-      
       testCameraBtn.disabled = true;
       testCameraBtn.textContent = 'Testing...';
-      
       try {
-        const res = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+        await fetch(url, { method: 'GET', mode: 'no-cors' });
         testCameraBtn.textContent = 'URL Valid ✓';
+      } catch (err) {
+        alert('Gagal terhubung ke URL. Periksa URL dan CORS.');
+      } finally {
         setTimeout(() => {
           testCameraBtn.disabled = false;
           testCameraBtn.textContent = 'Tes URL';
-        }, 2000);
-      } catch (err) {
-        alert('Gagal terhubung ke URL. Periksa URL dan CORS.');
-        testCameraBtn.disabled = false;
-        testCameraBtn.textContent = 'Tes URL';
+        }, 1500);
       }
     });
 
@@ -646,15 +675,8 @@
 
     window.addEventListener('load', async () => {
       sessionIdLabel.textContent = sessionId;
-      
-      // Pre-load webcam and model
-      try { await initCamera(); } catch (e) {}
+      renderLogs();
       try { await loadModel(); } catch (e) {}
-      
-      // Load existing logs to display
-      logs.forEach((log) => {
-        // Display in log container (optional)
-      });
     });
   </script>
 </body>
