@@ -318,13 +318,14 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.9/dist/blazeface.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@latest/dist/blazeface.min.js"></script>
   <script>
     const video = document.getElementById('video');
     const staticStreamImg = document.getElementById('staticStreamImg');
     const overlay = document.getElementById('overlay');
     const statusText = document.getElementById('statusText');
     const faceCountEl = document.getElementById('faceCount');
+    const deteksiStatus = document.getElementById('deteksiStatus');
     const logContainer = document.getElementById('logContainer');
     const startButton = document.getElementById('startButton');
     const sessionIdLabel = document.getElementById('sessionId');
@@ -412,6 +413,21 @@
     async function loadModel() {
       try {
         setStatus('Memuat model AI...', 'info');
+        // Coba muat model lokal terlebih dahulu (jika ada), lalu fallback ke CDN
+        try {
+          const resp = await fetch('model/blazeface/model.json', { method: 'GET' });
+          if (resp && resp.ok) {
+            setStatus('Memuat model AI dari penyimpanan lokal...', 'info');
+            model = await blazeface.load({ modelUrl: 'model/blazeface/model.json' });
+            setStatus('Model AI (lokal) siap. Klik tombol untuk mulai.', 'info');
+            return;
+          }
+        } catch (e) {
+          // tidak ada model lokal atau gagal fetch - lanjut ke CDN
+        }
+
+        // Fallback: muat dari CDN/default
+        setStatus('Memuat model AI dari CDN...', 'info');
         model = await blazeface.load();
         setStatus('Model AI siap. Klik tombol untuk mulai.', 'info');
       } catch (error) {
@@ -454,6 +470,7 @@
 
     function setStatus(status, type = 'info') {
       statusText.textContent = status;
+      deteksiStatus.textContent = status;
       statusText.className = 'status';
       if (type === 'warning') statusText.classList.add('warning');
       else if (type === 'critical') statusText.classList.add('critical');
