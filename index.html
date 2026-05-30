@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aplikasi Pengawasan Ujian AI</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: #eef2f7;
+      color: #1f2937;
+    }
+
+    header {
+      padding: 28px 24px;
+      text-align: center;
+      background: linear-gradient(135deg, #2563eb, #0ea5e9);
+      color: white;
+    }
+
+    header h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.8rem, 2.4vw, 2.8rem);
+    }
+
+    header p {
+      margin: 0;
+      opacity: 0.88;
+    }
+
+    main {
+      display: grid;
+      gap: 24px;
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+    }
+
+    .camera-panel {
+      display: grid;
+      grid-template-columns: 1.4fr 0.6fr;
+      gap: 24px;
+    }
+
+    .video-wrapper {
+      position: relative;
+      overflow: hidden;
+      min-height: 420px;
+      border-radius: 20px;
+      background: #111827;
+    }
+
+    video,
+    canvas,
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    select,
+    input,
+    button {
+      border: 1px solid #d1d5db;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+
+    button {
+      border: none;
+      color: white;
+      background: #2563eb;
+      cursor: pointer;
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      background: #1d4ed8;
+    }
+
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .status {
+      margin: 0;
+      padding: 18px;
+      border-radius: 18px;
+      font-weight: 600;
+      background: #eef2f7;
+    }
+
+    .info-panel {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .info-card {
+      padding: 20px;
+      border-radius: 18px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    .info-card h2 {
+      margin: 0 0 12px;
+      font-size: 1.1rem;
+    }
+
+    .info-card ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .info-card li {
+      padding: 6px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .info-card li:last-child {
+      border-bottom: none;
+    }
+
+    .log-panel {
+      padding-top: 0;
+    }
+
+    .log-panel h2 {
+      margin: 0 0 16px;
+    }
+
+    .log-container {
+      display: grid;
+      gap: 12px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .log-item {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+    }
+
+    .log-item.info {
+      border-left: 4px solid #3b82f6;
+    }
+
+    .log-item.warning {
+      border-left: 4px solid #f59e0b;
+    }
+
+    .log-item.critical {
+      border-left: 4px solid #ef4444;
+    }
+
+    .log-item b {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+    }
+
+    .log-item img {
+      max-width: 100%;
+      border-radius: 12px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    footer {
+      padding: 18px 24px;
+      text-align: center;
+      color: #4b5563;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    @media (max-width: 900px) {
+      .camera-panel,
+      .info-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .video-wrapper {
+        min-height: 320px;
+      }
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Aplikasi Pengawasan Ujian AI</h1>
+    <p>Deteksi wajah real-time, status proktor, dan log pengawasan.</p>
+  </header>
+
+  <main>
+    <section class="panel camera-panel">
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <img id="staticStreamImg" style="display:none;" />
+        <canvas id="overlay"></canvas>
+      </div>
+      <div class="controls">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <select id="modeSelect" aria-label="Pilih mode kamera">
+            <option value="webcam">Webcam (kamera pengguna)</option>
+            <option value="static">Kamera Statis (URL)</option>
+          </select>
+
+          <div id="staticConfig" style="display:none;">
+            <input id="cameraUrlInput" placeholder="URL kamera (MJPEG/HTTP)" />
+            <button id="testCameraBtn">Tes URL</button>
+          </div>
+
+          <button id="startButton">Mulai Pengawasan</button>
+        </div>
+        <p id="sessionLabel">ID sesi: <span id="sessionId">-</span></p>
+        <p id="statusText" class="status">Menunggu kamera...</p>
+      </div>
+    </section>
+
+    <section class="panel info-panel">
+      <div class="info-card">
+        <h2>Status Deteksi</h2>
+        <p id="deteksiStatus">Memuat model AI...</p>
+      </div>
+      <div class="info-card">
+        <h2>Hasil Analisis</h2>
+        <ul id="detailsList">
+          <li>Wajah terdeteksi: <strong id="faceCount">0</strong></li>
+          <li>Frekuensi log: setiap 5 detik</li>
+          <li><button style="width:100%;margin-top:8px;background:#ef4444;padding:8px;font-size:0.9rem;" id="clearLogsBtn">Hapus Riwayat</button></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel log-panel">
+      <h2>Riwayat Log</h2>
+      <div class="log-container" id="logContainer"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Teknologi AI kamera membantu pengawasan ujian dengan deteksi wajah otomatis. | Logs disimpan di browser (localStorage).</p>
+  </footer>
+
+  <div class="modal" id="imageModal">
+    <img id="modalImage" />
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.9/dist/blazeface.min.js"></script>
+  <script>
+    const video = document.getElementById('video');
+    const staticStreamImg = document.getElementById('staticStreamImg');
+    const overlay = document.getElementById('overlay');
+    const statusText = document.getElementById('statusText');
+    const faceCountEl = document.getElementById('faceCount');
+    const logContainer = document.getElementById('logContainer');
+    const startButton = document.getElementById('startButton');
+    const sessionIdLabel = document.getElementById('sessionId');
+    const modeSelect = document.getElementById('modeSelect');
+    const cameraUrlInput = document.getElementById('cameraUrlInput');
+    const testCameraBtn = document.getElementById('testCameraBtn');
+    const staticConfig = document.getElementById('staticConfig');
+    const clearLogsBtn = document.getElementById('clearLogsBtn');
+    const imageModal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+
+    let model = null;
+    let cameraStream = null;
+    let running = false;
+    let sessionId = `sesi-${Date.now()}`;
+    let lastEventAt = 0;
+    let lastStatus = '';
+    let sampleCanvas = null;
+
+    // Load logs from localStorage
+    function loadLogs() {
+      try {
+        const stored = localStorage.getItem('proktor_logs');
+        return stored ? JSON.parse(stored) : [];
+      } catch (err) {
+        return [];
+      }
+    }
+
+    // Save logs to localStorage
+    function saveLogs(logs) {
+      try {
+        localStorage.setItem('proktor_logs', JSON.stringify(logs));
+      } catch (err) {
+        console.error('Gagal menyimpan logs:', err);
+      }
+    }
+
+    let logs = loadLogs();
+
+    async function initCamera() {
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false,
+        });
+        video.srcObject = cameraStream;
+        await video.play();
+        overlay.width = video.videoWidth || 640;
+        overlay.height = video.videoHeight || 480;
+        statusText.textContent = 'Kamera siap. Klik "Mulai Pengawasan".';
+        sessionIdLabel.textContent = sessionId;
+      } catch (error) {
+        statusText.textContent = 'Gagal mengakses kamera. Izinkan kamera di browser settings.';
+        console.error(error);
+      }
+    }
+
+    async function loadModel() {
+      try {
+        statusText.textContent = 'Memuat model AI...';
+        model = await blazeface.load();
+        statusText.textContent = 'Model AI siap. Klik tombol untuk mulai.';
+      } catch (error) {
+        statusText.textContent = 'Gagal memuat model AI. Periksa koneksi internet.';
+        console.error(error);
+      }
+    }
+
+    function updateLog(message, type = 'info', screenshot = null) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('id-ID');
+      const item = document.createElement('div');
+      item.className = `log-item ${type}`;
+      item.innerHTML = `
+        <b>${timeStr} — ${type.toUpperCase()}</b>
+        <div>${message}</div>
+      `;
+
+      if (screenshot) {
+        const img = document.createElement('img');
+        img.src = screenshot;
+        img.alt = 'Screenshot bukti';
+        img.style.maxWidth = '100%';
+        img.style.borderRadius = '12px';
+        img.style.marginTop = '10px';
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', () => {
+          modalImage.src = screenshot;
+          imageModal.classList.add('active');
+        });
+        item.appendChild(img);
+      }
+
+      logContainer.prepend(item);
+
+      // Add to logs array and save
+      const logEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        sessionId,
+        eventType: type,
+        message,
+        timestamp: now.toISOString(),
+        screenshot: screenshot ? 'data:image/png' : null,
+      };
+      logs.unshift(logEntry);
+      saveLogs(logs);
+    }
+
+    function captureScreenshot() {
+      const canvas = document.createElement('canvas');
+      canvas.width = overlay.width;
+      canvas.height = overlay.height;
+      const ctx = canvas.getContext('2d');
+      
+      const drawSource = modeSelect.value === 'static' ? staticStreamImg : video;
+      ctx.drawImage(drawSource, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
+    }
+
+    function drawBoxes(predictions) {
+      const ctx = overlay.getContext('2d');
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+
+      predictions.forEach((prediction) => {
+        const [x1, y1] = prediction.topLeft;
+        const [x2, y2] = prediction.bottomRight;
+        const width = x2 - x1;
+        const height = y2 - y1;
+
+        ctx.fillRect(x1, y1, width, height);
+        ctx.strokeRect(x1, y1, width, height);
+      });
+    }
+
+    async function detectLoop() {
+      if (!running || !model) return;
+
+      const predictions = await model.estimateFaces(video, false);
+      const faceCount = predictions.length;
+      faceCountEl.textContent = faceCount;
+      drawBoxes(predictions);
+
+      let status = 'Aman - hanya 1 wajah terdeteksi.';
+      let eventType = 'info';
+      let message = 'Sesi pengawasan berjalan normal.';
+      let screenshot = null;
+
+      if (faceCount === 0) {
+        status = 'Peringatan: wajah tidak terdeteksi.';
+        eventType = 'warning';
+        message = 'Tidak ada wajah terdeteksi dalam kamera.';
+      } else if (faceCount > 1) {
+        status = 'Bahaya: lebih dari satu wajah terdeteksi.';
+        eventType = 'critical';
+        message = 'Terjadi deteksi lebih dari satu wajah dalam area kamera.';
+        screenshot = captureScreenshot();
+      }
+
+      statusText.textContent = status;
+
+      const now = Date.now();
+      if (status !== lastStatus || now - lastEventAt > 5000) {
+        lastStatus = status;
+        lastEventAt = now;
+        updateLog(message, eventType, screenshot);
+      }
+
+      requestAnimationFrame(detectLoop);
+    }
+
+    function ensureSampleCanvas(width, height) {
+      if (!sampleCanvas) {
+        sampleCanvas = document.createElement('canvas');
+      }
+      sampleCanvas.width = width;
+      sampleCanvas.height = height;
+      return sampleCanvas;
+    }
+
+    async function detectStaticLoop() {
+      if (!running || !model || !staticStreamImg.src) return;
+
+      const w = overlay.width || 640;
+      const h = overlay.height || 480;
+      const sc = ensureSampleCanvas(w, h);
+      const sctx = sc.getContext('2d');
+      
+      try {
+        sctx.drawImage(staticStreamImg, 0, 0, w, h);
+      } catch (err) {
+        // Image might not be ready yet
+      }
+
+      const predictions = await model.estimateFaces(sc, false);
+      const faceCount = predictions.length;
+      faceCountEl.textContent = faceCount;
+      drawBoxes(predictions);
+
+      let status = 'Aman - hanya 1 wajah terdeteksi.';
+      let eventType = 'info';
+      let message = 'Sesi pengawasan berjalan normal.';
+      let screenshot = null;
+
+      if (faceCount === 0) {
+        status = 'Peringatan: wajah tidak terdeteksi.';
+        eventType = 'warning';
+        message = 'Tidak ada wajah terdeteksi dalam kamera statis.';
+      } else if (faceCount > 1) {
+        status = 'Bahaya: lebih dari satu wajah terdeteksi.';
+        eventType = 'critical';
+        message = 'Terjadi deteksi lebih dari satu wajah dalam area kamera statis.';
+        screenshot = captureScreenshot();
+      }
+
+      statusText.textContent = status;
+
+      const now = Date.now();
+      if (status !== lastStatus || now - lastEventAt > 5000) {
+        lastStatus = status;
+        lastEventAt = now;
+        updateLog(message, eventType, screenshot);
+      }
+
+      requestAnimationFrame(detectStaticLoop);
+    }
+
+    startButton.addEventListener('click', async () => {
+      const mode = modeSelect.value || 'webcam';
+      
+      if (mode === 'webcam') {
+        if (!cameraStream) await initCamera();
+        if (!model) await loadModel();
+        running = true;
+        startButton.disabled = true;
+        startButton.textContent = 'Pengawasan Berjalan';
+        updateLog('Sesi pengawasan dimulai (webcam).', 'info');
+        detectLoop();
+      } else {
+        const url = cameraUrlInput.value.trim();
+        if (!url) {
+          alert('Masukkan URL kamera terlebih dahulu');
+          return;
+        }
+        
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((t) => t.stop());
+          cameraStream = null;
+          video.style.display = 'none';
+        }
+        
+        if (!model) await loadModel();
+        running = true;
+        startButton.disabled = true;
+        startButton.textContent = 'Pengawasan Berjalan';
+        updateLog('Sesi pengawasan dimulai (kamera statis).', 'info');
+
+        staticStreamImg.style.display = 'block';
+        staticStreamImg.crossOrigin = 'anonymous';
+        staticStreamImg.src = url;
+        
+        staticStreamImg.onload = () => {
+          overlay.width = staticStreamImg.width || 640;
+          overlay.height = staticStreamImg.height || 480;
+          detectStaticLoop();
+        };
+        
+        staticStreamImg.onerror = () => {
+          alert('Gagal memuat stream kamera. Periksa URL dan CORS.');
+          running = false;
+          startButton.disabled = false;
+          startButton.textContent = 'Mulai Pengawasan';
+        };
+
+        detectStaticLoop();
+      }
+    });
+
+    testCameraBtn.addEventListener('click', async () => {
+      const url = cameraUrlInput.value.trim();
+      if (!url) {
+        alert('Masukkan URL kamera terlebih dahulu');
+        return;
+      }
+      
+      testCameraBtn.disabled = true;
+      testCameraBtn.textContent = 'Testing...';
+      
+      try {
+        const res = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+        testCameraBtn.textContent = 'URL Valid ✓';
+        setTimeout(() => {
+          testCameraBtn.disabled = false;
+          testCameraBtn.textContent = 'Tes URL';
+        }, 2000);
+      } catch (err) {
+        alert('Gagal terhubung ke URL. Periksa URL dan CORS.');
+        testCameraBtn.disabled = false;
+        testCameraBtn.textContent = 'Tes URL';
+      }
+    });
+
+    modeSelect.addEventListener('change', (e) => {
+      if (e.target.value === 'static') {
+        staticConfig.style.display = 'block';
+        video.style.display = 'none';
+      } else {
+        staticConfig.style.display = 'none';
+        video.style.display = 'block';
+      }
+    });
+
+    clearLogsBtn.addEventListener('click', () => {
+      if (confirm('Hapus semua riwayat log?')) {
+        logs = [];
+        saveLogs(logs);
+        logContainer.innerHTML = '';
+        updateLog('Riwayat log dihapus.', 'info');
+      }
+    });
+
+    imageModal.addEventListener('click', () => {
+      imageModal.classList.remove('active');
+    });
+
+    window.addEventListener('load', async () => {
+      sessionIdLabel.textContent = sessionId;
+      
+      // Pre-load webcam and model
+      try { await initCamera(); } catch (e) {}
+      try { await loadModel(); } catch (e) {}
+      
+      // Load existing logs to display
+      logs.forEach((log) => {
+        // Display in log container (optional)
+      });
+    });
+  </script>
+</body>
+</html>

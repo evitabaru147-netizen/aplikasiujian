@@ -1,75 +1,93 @@
-# Aplikasi Ujian AI
+# Aplikasi Pengawasan Ujian AI
 
-Aplikasi web pengawasan ujian menggunakan kamera dan AI deteksi wajah.
+Aplikasi web pengawasan ujian menggunakan kamera dan AI deteksi wajah — **100% HTML statis**, tidak perlu Node.js/npm.
 
 ## Fitur
 
-- Deteksi wajah real-time menggunakan kamera web.
-- Peringatan ketika tidak ada wajah atau lebih dari satu wajah terdeteksi.
-- Log kejadian disimpan pada server.
-- Bukti screenshot disimpan saat kondisi mencurigakan terjadi.
+- ✅ Deteksi wajah real-time (Webcam atau Kamera Statis)
+- ✅ Peringatan otomatis: tidak ada wajah / lebih dari satu wajah
+- ✅ Logs disimpan di browser (localStorage)
+- ✅ Screenshot bukti otomatis saat deteksi anomali
+- ✅ Responsif untuk desktop dan mobile
 
-## Instalasi
+## Instalasi & Jalankan
 
-Pastikan Node.js 18+ sudah diinstal.
+### Di GitHub Codespace
 
-1. Buka terminal di folder proyek:
-   ```bash
-   cd /workspaces/aplikasiujian
-   ```
-2. Pasang dependensi:
-   ```bash
-   npm install
-   ```
-3. Jalankan server:
-   ```bash
-   npm start
-   ```
-4. Buka browser dan akses:
-   ```text
-   http://localhost:3000
-   ```
+1. Buka file `index.html` di VS Code
+2. Klik kanan → **"Open with Live Server"** (atau install extension Live Server jika belum)
+3. Browser akan membuka aplikasi di URL lokal (mis. `http://localhost:5500`)
+4. Izinkan akses kamera ketika diminta
+
+### Di Komputer Lokal
+
+- Buka file `index.html` langsung di browser (double-click) atau
+- Jalankan simple HTTP server:
+  ```bash
+  python -m http.server 8000
+  # atau
+  npx http-server
+  ```
+- Buka `http://localhost:8000/index.html`
 
 ## Struktur Proyek
 
-- `server.js` - server Express untuk menyajikan frontend dan API log.
-- `public/index.html` - tampilan aplikasi pengawasan ujian.
-- `public/app.js` - logika kamera dan AI deteksi wajah.
-- `public/styles.css` - styling antarmuka.
-- `logs.json` - catatan log sesi.
-- `evidence/` - screenshot bukti otomatis.
+- `index.html` - file utama (HTML + CSS + JavaScript self-contained)
+- `README.md` - dokumentasi ini
+- `.gitignore` - file git ignore
 
-## Penggunaan
+## Cara Pakai
 
-- Izinkan akses kamera ketika diminta.
-- Tekan tombol **"Mulai Pengawasan"**.
-- Aplikasi akan mendeteksi wajah dan memberi status.
-- Jika tidak ada wajah atau lebih dari satu wajah, aplikasi akan mencatat insiden.
+### Mode Webcam
 
-## Catatan
+1. Buka aplikasi di browser
+2. Mode default: **Webcam (kamera pengguna)**
+3. Izinkan akses kamera
+4. Klik tombol **"Mulai Pengawasan"**
+5. Aplikasi mendeteksi wajah real-time
 
-Model AI dimuat dari CDN `TensorFlow.js` dan `BlazeFace`.
+### Mode Kamera Statis
 
-Jika ingin menambahkan fitur proktor lebih lanjut, berikut ide:
+1. Buka aplikasi di browser
+2. Ubah dropdown ke **"Kamera Statis (URL)"**
+3. Input URL stream kamera (MJPEG/HTTP):
+   - Contoh: `http://192.168.1.100/mjpeg`
+   - Klik **"Tes URL"** untuk validasi
+4. Klik **"Mulai Pengawasan"**
+5. Sistem akan mendeteksi wajah dari stream
 
-- deteksi tatapan/mata menjauh
-- deteksi penggunaan ponsel
-- deteksi objek tambahan di meja
+## Logs & Data
 
-## Mode Kamera Statis (IP/MJPEG)
+- **Logs disimpan di**: Browser `localStorage`
+- **Otomatis dihapus saat**: Clear browser cache / storage
+- **Cara lihat logs**: Inspect → Application → Local Storage
+- **Clear logs**: Klik tombol "Hapus Riwayat" di panel
 
-Anda dapat menggunakan kamera statis (mis. IP camera dengan stream MJPEG/HTTP). Cara konfigurasi:
+## Model AI
 
-- Buka aplikasi di browser.
-- Pada panel kontrol, ubah mode menjadi **Kamera Statis (URL)**.
-- Masukkan URL stream kamera (mis. `http://camera-host/mjpeg`) lalu tekan **Simpan URL Kamera**.
-- Tekan **Mulai Pengawasan** untuk memulai deteksi dari stream statis.
+- TensorFlow.js (v4.12.0)
+- BlazeFace (model deteksi wajah ringan)
+- Dimuat dari CDN — butuh internet pertama kali
 
-Atau atur variabel lingkungan `CAMERA_URL` sebelum menjalankan server untuk setelan global:
+## Tips
 
-```bash
-export CAMERA_URL="http://camera-host/mjpeg"
-npm start
-```
+- Pastikan kamera statis memiliki URL yang dapat diakses browser (CORS-friendly)
+- Untuk kamera RTSP, ubah ke stream MJPEG/HTTP terlebih dahulu
+- Screenshot otomatis saat deteksi anomali disimpan di memory browser
+- Logs disimpan sampai browser cache dihapus
 
-Catatan: Server menyediakan endpoint proxy stream di `/camera/stream` yang digunakan frontend untuk mengambil frame.
+## Troubleshooting
+
+**"Gagal mengakses kamera"**
+- Izinkan kamera di browser settings
+- Gunakan HTTPS jika di production (getUserMedia butuh secure context)
+
+**"Gagal memuat stream kamera statis"**
+- Periksa URL stream (buka di tab baru)
+- Pastikan URL support CORS (atau gunakan proxy)
+- Test URL dengan tombol "Tes URL"
+
+**"Model AI tidak load"**
+- Periksa koneksi internet
+- Refresh halaman
+- Cek console browser (F12 → Console)

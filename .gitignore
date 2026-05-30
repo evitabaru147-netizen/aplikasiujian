@@ -1,4 +1,18 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# No dependencies for static HTML
 node_modules/
+package-lock.json
+
+# Optional: if you add server later
+.env
 logs.json
 evidence/
-.DS_Store
