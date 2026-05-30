@@ -6,8 +6,6 @@ Aplikasi web pengawasan ujian menggunakan kamera dan AI deteksi wajah — **100%
 
 - ✅ Deteksi wajah real-time (Webcam atau Kamera Statis)
 - ✅ Peringatan otomatis: tidak ada wajah / lebih dari satu wajah
-- ✅ **Deteksi menoleh (head turning)** — alert saat peserta menoleh ke kiri/kanan
-- ✅ **Deteksi gerakan tidak fokus** — alert saat gerak tiba-tiba/tidak fokus
 - ✅ Logs disimpan di browser (localStorage)
 - ✅ Screenshot bukti otomatis saat deteksi anomali
 - ✅ Responsif untuk desktop dan mobile
@@ -48,24 +46,6 @@ Aplikasi web pengawasan ujian menggunakan kamera dan AI deteksi wajah — **100%
 4. Klik tombol **"Mulai Pengawasan"**
 5. Aplikasi mendeteksi wajah real-time
 
-### Deteksi Menoleh & Gerakan Tidak Fokus
-
-Selama pengawasan berlangsung, sistem otomatis mendeteksi:
-
-- **Menoleh ke Kiri/Kanan**: Ketika kepala peserta bergerak horizontal > 60px
-  - Trigger: Setelah 3 frame menoleh yang terdeteksi
-  - Alert: Peringatan dengan tangkapan layar bukti
-  
-- **Gerakan Tidak Fokus**: Ketika terjadi perubahan posisi cepat
-  - Trigger: Perubahan posisi > 40px per frame
-  - Alert: Peringatan gerakan tiba-tiba/tidak fokus
-
-- **Tidak Ada Wajah**: Saat wajah tidak terdeteksi di frame
-  - Peringatan otomatis dengan status visual
-
-- **Lebih dari 1 Wajah**: Saat ada 2+ wajah di frame
-  - Alert kritis dengan tangkapan layar
-
 ### Mode Kamera Statis
 
 1. Buka aplikasi di browser
@@ -74,7 +54,7 @@ Selama pengawasan berlangsung, sistem otomatis mendeteksi:
    - Contoh: `http://192.168.1.100/mjpeg`
    - Klik **"Tes URL"** untuk validasi
 4. Klik **"Mulai Pengawasan"**
-5. Sistem akan mendeteksi wajah dan gerakan dari stream
+5. Sistem akan mendeteksi wajah dari stream
 
 ## Logs & Data
 
@@ -95,29 +75,6 @@ Selama pengawasan berlangsung, sistem otomatis mendeteksi:
 - Untuk kamera RTSP, ubah ke stream MJPEG/HTTP terlebih dahulu
 - Screenshot otomatis saat deteksi anomali disimpan di memory browser
 - Logs disimpan sampai browser cache dihapus
-- Status warning akan berganti warna (kuning) dan critical (merah) untuk visibilitas maksimal
-
-## Konfigurasi Threshold (Advanced)
-
-Untuk mengubah sensitifitas deteksi, edit di `index.html` bagian `<script>`:
-
-```javascript
-// Deteksi menoleh (pixels horizontal)
-const HEAD_TURN_THRESHOLD = 60;
-
-// Deteksi gerakan cepat (pixels per frame)
-const MOVEMENT_SPEED_THRESHOLD = 40;
-
-// Jumlah frame sebelum alert menoleh
-const HEAD_TURN_ALERT_THRESHOLD = 3;
-
-// Jumlah frame sebelum alert gerakan
-const MOVEMENT_ALERT_THRESHOLD = 2;
-```
-
-**Contoh penyesuaian:**
-- Lebih sensitif: Kurangi threshold (misal 40, 25)
-- Kurang sensitif: Naikkan threshold (misal 80, 55)
 
 ## Troubleshooting
 

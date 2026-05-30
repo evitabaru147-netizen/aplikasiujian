@@ -119,19 +119,6 @@
       border-radius: 18px;
       font-weight: 600;
       background: #eef2f7;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
-
-    .status.warning {
-      background: #fef3c7;
-      color: #92400e;
-      border: 2px solid #f59e0b;
-    }
-
-    .status.critical {
-      background: #fee2e2;
-      color: #991b1b;
-      border: 2px solid #ef4444;
     }
 
     .info-panel {
@@ -343,17 +330,6 @@
     let lastEventAt = 0;
     let lastStatus = '';
     let sampleCanvas = null;
-    
-    // Head movement tracking
-    let lastFacePosition = null;
-    let headTurnCounter = 0;
-    let movementCounter = 0;
-    let lastMovementCheckTime = 0;
-    const HEAD_TURN_THRESHOLD = 60; // pixels
-    const MOVEMENT_SPEED_THRESHOLD = 40; // pixels per frame
-    const HEAD_TURN_ALERT_THRESHOLD = 3; // frames to trigger alert
-    const MOVEMENT_ALERT_THRESHOLD = 2; // frames to trigger alert
-    const FOCUS_CHECK_INTERVAL = 100; // ms between checks
 
     // Load logs from localStorage
     function loadLogs() {
@@ -475,54 +451,6 @@
       });
     }
 
-    function detectHeadMovement(predictions) {
-      if (predictions.length === 0) return null;
-
-      const face = predictions[0];
-      const [x1, y1] = face.topLeft;
-      const [x2, y2] = face.bottomRight;
-      const centerX = (x1 + x2) / 2;
-      const centerY = (y1 + y2) / 2;
-      const faceWidth = x2 - x1;
-      const faceHeight = y2 - y1;
-
-      let headTurnAlert = null;
-      let movementAlert = null;
-
-      if (lastFacePosition) {
-        const deltaX = Math.abs(centerX - lastFacePosition.centerX);
-        const deltaY = Math.abs(centerY - lastFacePosition.centerY);
-        const sizeChange = Math.abs(faceWidth - lastFacePosition.faceWidth);
-
-        // Detect head turning (horizontal movement)
-        if (deltaX > HEAD_TURN_THRESHOLD) {
-          const direction = centerX > lastFacePosition.centerX ? 'kanan' : 'kiri';
-          headTurnCounter++;
-          if (headTurnCounter >= HEAD_TURN_ALERT_THRESHOLD) {
-            headTurnAlert = { direction, deltaX };
-            headTurnCounter = 0;
-          }
-        } else {
-          headTurnCounter = Math.max(0, headTurnCounter - 1);
-        }
-
-        // Detect sudden movement (speed change)
-        const moveSpeed = deltaX + deltaY;
-        if (moveSpeed > MOVEMENT_SPEED_THRESHOLD && sizeChange < faceWidth * 0.2) {
-          movementCounter++;
-          if (movementCounter >= MOVEMENT_ALERT_THRESHOLD) {
-            movementAlert = { moveSpeed };
-            movementCounter = 0;
-          }
-        } else {
-          movementCounter = Math.max(0, movementCounter - 1);
-        }
-      }
-
-      lastFacePosition = { centerX, centerY, faceWidth, faceHeight };
-      return { headTurnAlert, movementAlert };
-    }
-
     async function detectLoop() {
       if (!running || !model) return;
 
@@ -540,27 +468,11 @@
         status = 'Peringatan: wajah tidak terdeteksi.';
         eventType = 'warning';
         message = 'Tidak ada wajah terdeteksi dalam kamera.';
-        lastFacePosition = null;
       } else if (faceCount > 1) {
         status = 'Bahaya: lebih dari satu wajah terdeteksi.';
         eventType = 'critical';
         message = 'Terjadi deteksi lebih dari satu wajah dalam area kamera.';
         screenshot = captureScreenshot();
-      } else {
-        // Single face detected - check for head movement/turning
-        const movementCheck = detectHeadMovement(predictions);
-        
-        if (movementCheck.headTurnAlert) {
-          status = `⚠ Peserta menoleh ke ${movementCheck.headTurnAlert.direction}`;
-          eventType = 'warning';
-          message = `Peserta menoleh ke ${movementCheck.headTurnAlert.direction} sebesar ${Math.round(movementCheck.headTurnAlert.deltaX)}px.`;
-          screenshot = captureScreenshot();
-        } else if (movementCheck.movementAlert) {
-          status = '⚠ Terdeteksi gerakan tidak fokus';
-          eventType = 'warning';
-          message = 'Terdeteksi gerakan tiba-tiba atau gerak tubuh yang tidak fokus pada ujian.';
-          screenshot = captureScreenshot();
-        }
       }
 
       statusText.textContent = status;
@@ -570,11 +482,6 @@
         lastStatus = status;
         lastEventAt = now;
         updateLog(message, eventType, screenshot);
-        
-        // Update status styling
-        statusText.className = 'status';
-        if (eventType === 'warning') statusText.classList.add('warning');
-        else if (eventType === 'critical') statusText.classList.add('critical');
       }
 
       requestAnimationFrame(detectLoop);
@@ -617,27 +524,11 @@
         status = 'Peringatan: wajah tidak terdeteksi.';
         eventType = 'warning';
         message = 'Tidak ada wajah terdeteksi dalam kamera statis.';
-        lastFacePosition = null;
       } else if (faceCount > 1) {
         status = 'Bahaya: lebih dari satu wajah terdeteksi.';
         eventType = 'critical';
         message = 'Terjadi deteksi lebih dari satu wajah dalam area kamera statis.';
         screenshot = captureScreenshot();
-      } else {
-        // Single face detected - check for head movement/turning
-        const movementCheck = detectHeadMovement(predictions);
-        
-        if (movementCheck.headTurnAlert) {
-          status = `⚠ Peserta menoleh ke ${movementCheck.headTurnAlert.direction}`;
-          eventType = 'warning';
-          message = `Peserta menoleh ke ${movementCheck.headTurnAlert.direction} sebesar ${Math.round(movementCheck.headTurnAlert.deltaX)}px.`;
-          screenshot = captureScreenshot();
-        } else if (movementCheck.movementAlert) {
-          status = '⚠ Terdeteksi gerakan tidak fokus';
-          eventType = 'warning';
-          message = 'Terdeteksi gerakan tiba-tiba atau gerak tubuh yang tidak fokus pada ujian.';
-          screenshot = captureScreenshot();
-        }
       }
 
       statusText.textContent = status;
@@ -647,11 +538,6 @@
         lastStatus = status;
         lastEventAt = now;
         updateLog(message, eventType, screenshot);
-        
-        // Update status styling
-        statusText.className = 'status';
-        if (eventType === 'warning') statusText.classList.add('warning');
-        else if (eventType === 'critical') statusText.classList.add('critical');
       }
 
       requestAnimationFrame(detectStaticLoop);
