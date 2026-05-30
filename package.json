@@ -1,0 +1,15 @@
+{
+  "name": "aplikasiujian",
+  "version": "1.0.0",
+  "description": "Web aplikasi pengawasan ujian menggunakan kamera AI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
